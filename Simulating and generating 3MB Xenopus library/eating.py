@@ -399,11 +399,7 @@ def al_scoreguides(guides, genome, genomedict, hits=50, return_blast =1):
     #return hits
     return guides
 
-
-
-
-
-def dbconnect(dbname):
+def db_connect(dbname):
     '''
     dbname: the filename of the sqlite db to store guide scores in. Can be an existing database, in which case 
         new entries are appended. If the filename isn't found, a new db with this name is created.
@@ -428,25 +424,59 @@ def dbconnect(dbname):
             sqlite3.Cursor.__init__(self, *args, **kwargs)
             self.row_factory = lambda cur, row: dict_factory(self, row)
 
-    if os.path.isfile(str(dbname + '.db')):
+    if os.path.isfile(str(dbname + '.db')) == 1:
         print("Database " + dbname +".db exists. Appending to this database.")
-    # 
+        just_made = 0
+    else:
+        print("Creating " + dbname +".db.")
+        just_made = 1
     con = sqlite3.connect(str(dbname + '.db'), factory=DictConnnection)
     con.row_factory = dict_factory
     cur = con.cursor()
 
+    if just_made == 1:
+        try:
+            cur.execute('''CREATE TABLE scores(sequence text, genome text, score real, version real, id integer PRIMARY KEY)''')
+            cur.execute('''CREATE UNIQUE INDEX seq_genome ON scores(sequence, genome, version) ''')
+            cur.execute('''CREATE TABLE locations(id integer, sequence text, genome text, loc_start integer, scaffold text, enzyme text, rel_name text, PRIMARY KEY(loc_start, enzyme, genome))''')
+            print("Creating tables.")
+        except:
+            print("Tables already set up.")
+    else: 
+        None
+    return cur, con
+
+def db_add_guide(cur, con, guide, genome, version):
+    data = []
+    # See if sequence/genome/version combo is already in the database
     try:
-        print("Creating tables.")
-        cur.execute('''CREATE TABLE scores
-                 (sequence text, genome text, score real, version real, filesize real, order_in_xml real, id integer PRIMARY KEY)''')
-        cur.execute('''CREATE TABLE locations
-                 (id integer, sequence text, genome text, loc_start integer, scaffold test, enzyme text, rel_name text)''')
+        cur.execute("SELECT * FROM scores WHERE sequence = '{}' AND genome = '{}' AND version = '{}'".format(guide.seq, genome, version))
+        data = cur.fetchall()
+    # if it's not, add it
     except:
-        print("Tables already set up.")
-    return cur
-
-def
-
+        None
+    if len(data) == 0:
+        #print("Adding score")
+        try:
+            cur.execute("INSERT INTO scores(sequence, genome, score, version) \
+            VALUES('{}', '{}', '{}', '{}')".format(guide.seq, genome, guide.annotations['score'], version))
+            con.commit()
+            cur.execute("SELECT * FROM scores WHERE sequence = '{}' AND genome = '{}' AND version = '{}'".format(guide.seq, genome, version))
+            data = cur.fetchall()
+            #print("Added score")
+        except:
+            print("Error: Couldn't find or deposit score" + str(len(data)))
+    # Using its ID, add into locations a reference for this score
+    try:
+        #print(data)
+        cur.execute("INSERT INTO locations(id, sequence, genome, loc_start, scaffold, enzyme, rel_name) \
+                        VALUES ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}')"\
+                    .format(data[0]["id"], guide.seq, genome, guide.name, guide.dbxrefs[0], guide.description, guide.id))
+        con.commit()
+    except:
+        None
+        #print("Couldn't add location.")
+    return None
 
 def guide2DB(guide, genome, log_blast = 0, relativeserver="localhost", version=2):
     '''

@@ -4,7 +4,7 @@ Andrew Lane, University of California, Berkeley
 May 2015
 
 ## Description
-This repository contains code used to simulate and score libraries used in Lane et al., 2015. If you use anthing from this repository, please cite us!
+This repository contains code used to simulate and score libraries used in Lane et al., 2015. 
 
 ## Using this repository
 [Start here](https://github.com/eatingcrispr/VirtualEating/blob/master/Simulating%20and%20generating%203MB%20Xenopus%20library/VirtualEating.ipynb) for code related to generating the guides used in imaging of the single locus on *X. laevis* 

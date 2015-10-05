@@ -13,5 +13,5 @@ analyzing CRISPR-EATING enzymatically generated sgRNA libraries for genome label
 or screening as decribed in [Lane et al., 2015](http://www.cell.com/developmental-cell/abstract/S1534-5807(15)00392-5)
 
 ### Installation:
-Copy the eating-tools folder from this git repo into to your python
+Copy the `eating` folder from this git repo into to your python
 site-packages directory or your project working directory.

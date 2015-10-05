@@ -25,7 +25,7 @@ import operator
 
 #### Plotting output functions
 
-def al_plot_complexity(list):
+def plot_complexity(list):
     '''
     Takes a list of sequences, plots count of sequences vs percent of unique sequences.
     '''
@@ -53,7 +53,7 @@ def al_plot_complexity(list):
 
 #### Textual output functions
 
-def al_print_features(inputseq, addpamcutters, directlabel):
+def print_features(inputseq, addpamcutters, directlabel):
     '''
     Takes 3 arguments:
     inputseq: SeqRecord to draw
@@ -155,7 +155,7 @@ def al_print_features(inputseq, addpamcutters, directlabel):
 
 
 
-def al_string2feat(queryseq, ampsdict): #lib5pr is subjectseq; t7 is queryseq
+def string2feat(queryseq, ampsdict): #lib5pr is subjectseq; t7 is queryseq
     '''
     This function accepts a query seq and a dictionary of subjectseqs, where the key (amp)
     is contained in a field in queryseq, highlighting the location of queryseq in it.

@@ -404,7 +404,7 @@ def primer_search(current_amp, global_parameters=global_parameters, filename="pr
             #print(seq_args["SEQUENCE_PRIMER_PAIR_OK_REGION_LIST"])
             # Don't try priming if it's all Ns in the primeable region:
             # leftNs = sequence_string[primeableregionleft_start:primeableregionleft_start+primeableregionleft_length].
-            # if 
+            # if
 
             primerdict = primer3.bindings.designPrimers(seq_args, global_parameters)
             if primerdict["PRIMER_PAIR_NUM_RETURNED"] == 0:

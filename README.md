@@ -8,7 +8,7 @@ deprecated (moved to the archive folder) and the core logic abstracted into the
 20150530 (v. 1.0): Initial release.
 
 ## Description
-eating-tools is a set of functions designed to help in planning, implementing and
+The `eating` package is a set of functions designed to help in planning, implementing and
 analyzing CRISPR-EATING enzymatically generated sgRNA libraries for genome labeling
 or screening as decribed in [Lane et al., 2015](http://www.cell.com/developmental-cell/abstract/S1534-5807(15)00392-5)
 

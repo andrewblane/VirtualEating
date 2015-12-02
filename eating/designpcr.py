@@ -231,7 +231,6 @@ def screen_primer_dumb(primer, genomename):
 
 ########
 #Begin test set of functions to screen primers by proximity and orientation.
-
 def blast_primer(item, genomename):
     p = []
     pF = p.append(SeqRecord(seq = Seq(item[0], IUPACAmbiguousDNA()), id=str(str(item[0])), name = "F", description = ""))
@@ -239,25 +238,26 @@ def blast_primer(item, genomename):
     filename = "primer.fasta"
     SeqIO.write(p, filename, "fasta")
     blastn_cline = NcbiblastnCommandline(query=filename, db=genomename, \
-    task = "blastn-short",outfmt=5, out=filename + ".blast", max_target_seqs=15, max_hsps=100, num_threads = 7, evalue = 10, dust="no")
+    task = "blastn-short",outfmt=5, out=filename + ".blast", max_target_seqs=100, num_threads = 7, evalue = 100, dust="no")
     blastn_cline()
     result_handle = open(filename + ".blast")
     hits = NCBIXML.parse(result_handle)
     hits = [item for item in hits]
     return hits
 
-def parse_primer_hits(hits, tm=40):
+def parse_primer_hits(hits):
     priming_dict = {}
     for item in hits:
         for align in item.alignments:
             for spot in align.hsps:
                 genomic_binding_site = Bio.Seq.reverse_complement(str(spot.sbjct))
-                calculated_tm = primer3.bindings.calcEndStability(str(item.query), genomic_binding_site).tm
-                if calculated_tm > tm: # Calculating 3' end stability
+                tm = primer3.bindings.calcEndStability(str(item.query), genomic_binding_site).tm
+                if tm > 45: # Calculating 3' end stability
+                    print(str(item.query + "\n" + str(Seq(genomic_binding_site).reverse_complement()) + " " + str(tm) + "\n"))
                     try:
-                        priming_dict[align.title].append((spot.sbjct_start, spot.sbjct_end, item.query, genomic_binding_site, calculated_tm))
+                        priming_dict[align.title].append((spot.sbjct_start, spot.sbjct_end, item.query, genomic_binding_site, tm))
                     except:
-                        priming_dict[align.title] = [(spot.sbjct_start, spot.sbjct_end, item.query, genomic_binding_site, calculated_tm)]
+                        priming_dict[align.title] = [(spot.sbjct_start, spot.sbjct_end, item.query, genomic_binding_site, tm)]
     return(priming_dict)
 
 def screen_hits(priming_dict):
@@ -268,48 +268,46 @@ def screen_hits(priming_dict):
         get product size
     '''
     viableproducts = []
-    for chromosome_hits in priming_dict.iteritems():
-        product_counter = 0
-        #print chromosome_hits[0]
+    product_counter = 0
+    for item in priming_dict.iteritems():
+        #print item[0]
         #Get the intervals between binding sites on a scaffold
-        if len(chromosome_hits[1]) > 1 and len(chromosome_hits[1])<=6:
+        if len(item[1]) > 1 and len(item[1])<=6:
             ### For each primer, go through and ask if any other primer is within 30000 nt of it
             # If so, make a tuple with the two partners' starts and orientations
             # If they're different, then add it to a viable product list
-            for binding_sites in chromosome_hits[1]:
+            for binding_sites in item[1]:
                 query_start = binding_sites[0]
                 query_end = binding_sites[1]
-                for other_sites in chromosome_hits[1]:
+                #print query_start
+                for other_sites in item[1]:
                     subject_start = other_sites[0]
                     subject_end = other_sites[1]
-                    if abs(query_start - subject_start) <= 30000  and abs(query_start - subject_start) > 0:
+                    #print("\t" + str(subject_start))
+                    if abs(query_start - subject_start) <= 30000:
                         #print("\t\tuhoh")
                         query_orientation = query_start - query_end # First primer has same index as interval list position
                         subject_orientation = subject_start - subject_end # Second primer has index+1 of interval list position
                         # Test for the sign (=direction) of the start/end subtraction for primer, if it's the same for both there's no pcr product.
-                        sameorientation = all(chromosome_hits >= 0 for chromosome_hits in (query_orientation, subject_orientation)) or all(chromosome_hits < 0 for chromosome_hits in (query_orientation, subject_orientation))
-                        # print("\t" + chromosome_hits[0] + " " + str(query_start - subject_start))
-                        # print("\t\t" + str(sameorientation))
+                        sameorientation = all(item >= 0 for item in (query_orientation, subject_orientation)) or all(item < 0 for item in (query_orientation, subject_orientation))
                         if sameorientation == False:
                             product_counter += 1
-            viableproducts.append((str(chromosome_hits[0]), product_counter))
-        if len(chromosome_hits[1]) > 6:
+            viableproducts.append((str(item[0]), product_counter))
+        if len(item[1]) > 6:
             product_counter = 999
-            viableproducts.append((str(chromosome_hits[0]), product_counter))
-    print(viableproducts)
+            viableproducts.append((str(item[0]), product_counter))
     return viableproducts
 
-def screen_primer_in_silico_pcr(primer_pair, genomename, tm=40):
+def screen_primer_in_silico_pcr(primer_pair, genomename):
     '''
     Outputs a 1 if the primer is bad, a 0 if it's good. Based on
     primer proximity and orientation within the desired genome.
     '''
     bad = 0
     hits = blast_primer(primer_pair, genomename)
-    priming_dict = parse_primer_hits(hits, tm=tm)
+    priming_dict = parse_primer_hits(hits)
     viableproducts = screen_hits(priming_dict)
-    #if len(viableproducts) > 1 or viableproducts[0][1] > 2: #if there's a hits on more than one scaffold or more than one hit on a scaffold
-    if sum([item[1] for item in viableproducts]) > 2:
+    if len(viableproducts) > 1 or viableproducts[0][1] > 2: #if there's a hit on more than one scaffold or more than one hit on a scaffold
         bad = 1
     return (bad, viableproducts)
 
@@ -324,8 +322,8 @@ global_parameters = {
         'PRIMER_MIN_SIZE': 18,
         'PRIMER_MAX_SIZE': 25,
         'PRIMER_OPT_TM': 60.0,
-        'PRIMER_MIN_TM': 50.0, # was 56
-        'PRIMER_MAX_TM': 75.0, # was 67
+        'PRIMER_MIN_TM': 56.0,
+        'PRIMER_MAX_TM': 67.0,
         'PRIMER_MIN_GC': 20.0,
         'PRIMER_MAX_GC': 80.0,
         'PRIMER_MAX_POLY_X': 100,
@@ -346,11 +344,10 @@ global_parameters = {
         'PRIMER_MIN_THREE_PRIME_DISTANCE':3,
         'PRIMER_PAIR_MAX_DIFF_TM':5, #added
         'PRIMER_PAIR_WT_DIFF_TM':1, #added
-        'PRIMER_PAIR_WT_PRODUCT_SIZE_LT': 0.5, #added
         }
 
 # User functions:
-def primer_search(current_amp, global_parameters=global_parameters, filename="primerlist.tsv", method="dumb", tm=40):
+def primer_search(current_amp, global_parameters=global_parameters, filename="primerlist.tsv", method="dumb"):
     '''
     Returns a dict of candidate primers and their parameters, calculated
     against an Amplicon instance. In many cases, it's not possible
@@ -372,51 +369,41 @@ def primer_search(current_amp, global_parameters=global_parameters, filename="pr
             None
     except IOError:
         with open(filename, "w") as primerlist:
-            primerlist.write("Sequence_id\tforward_seq\tforward_start\tforward_length\tforward_tm\tforward_gc\treverse_seq\treverse_start\treverse_length\treverse_tm\treverse_gc\tinput_seq_length\tPCR_product_length\tGuides_Contained\tExpanded priming distance\tActual Non-overlapping Guide Count\n")
+            primerlist.write("Sequence_id\tforward_seq\tforward_start\tforward_length\tforward_tm\tforward_gc\treverse_seq\treverse_start\
+            \treverse_length\treverse_tm\treverse_gc\tinput_seq_length\tPCR_product_length\tGuides_Contained\tExpanded priming distance\tActual Non-overlapping Guide Count\n")
             primerlist.close()
 
     # Work on a "masked" version of the sequence where lowercase letters
     # are converted to Ns
     sequence_string = str(mask_sequence(current_amp.permissible_region).seq)
-    increment_bases = 4 # number of nucleotides by which priming window is expanded at each round
-    expand = 0 # Number of nucleotides current attempt shifts priming window by
-    loopround = 0 # Round of primer attempts
-    expansion_limit = current_amp.length/8
+    increment = 4 # number of nucleotides by which priming window is expanded at each round
     primerdict = {}
     primerdict["PRIMER_PAIR_NUM_RETURNED"] = 0
     i = 0
+    expand = 0
     bad = 1
-    genomename = current_amp.genomename
-    # Do this until a good primer is found.
-    while bad == 1 and expand < expansion_limit:
-        while primerdict["PRIMER_PAIR_NUM_RETURNED"] == 0 and expand < expansion_limit:
-            expand = increment_bases * loopround
-            primeableregionleft_start = 0 + expand
-            primeableregionleft_length = current_amp.required_start_relative #+ expand #remove?
+    loopround = 0
+    while bad == 1 and expand < current_amp.length/8:
+        while primerdict["PRIMER_PAIR_NUM_RETURNED"] == 0 and expand < current_amp.length/8:
+            expand = increment * loopround
+            primeableregionleft_start = 0 #+ expand
+            primeableregionleft_length = current_amp.required_start_relative + expand #remove?
             primeableregionright_start = current_amp.required_end_relative - expand
-            primeableregionright_length = len(current_amp.permissible_region)-current_amp.required_end_relative #+ expand #remove?
+            primeableregionright_length = len(current_amp.permissible_region)-current_amp.required_end_relative + expand #remove?
             seq_args = {"SEQUENCE_ID": current_amp.guides[0].id,
                      "SEQUENCE_TEMPLATE": sequence_string,
                      "SEQUENCE_PRIMER_PAIR_OK_REGION_LIST": [[primeableregionleft_start,primeableregionleft_length,
                                                              primeableregionright_start,primeableregionright_length]],
                      }
-            global_parameters["PRIMER_PRODUCT_OPT_SIZE"] = int(current_amp.length)
             #print(seq_args["SEQUENCE_PRIMER_PAIR_OK_REGION_LIST"])
-            # Don't try priming if it's all Ns in the primeable region:
-            # leftNs = sequence_string[primeableregionleft_start:primeableregionleft_start+primeableregionleft_length].
-            # if
-
             primerdict = primer3.bindings.designPrimers(seq_args, global_parameters)
-            if primerdict["PRIMER_PAIR_NUM_RETURNED"] == 0:
-                print(primerdict)
             primerdict["expandedpriming"] = expand
             loopround = loopround + 1
-            print(str("Expanded Priming: " + str(expand) + " nt; " + str(primerdict["PRIMER_PAIR_NUM_RETURNED"]) + " primers tested."))
+        genomename = current_amp.genomename
         # Loop through found primers and screen for specificity
         j = 0
         while j < primerdict["PRIMER_PAIR_NUM_RETURNED"] and bad == 1:
-            print(j)
-            leftprimer =  primerdict[str("PRIMER_LEFT_" + str(j) + "_SEQUENCE")]
+            leftprimer = primerdict[str("PRIMER_LEFT_" + str(j) + "_SEQUENCE")]
             leftprimer_start =  str(primerdict[str("PRIMER_LEFT_"+ str(j))][0])
             leftprimer_length =  str(primerdict[str("PRIMER_LEFT_"+ str(j))][1])
             leftprimer_gc =  str(primerdict[str("PRIMER_LEFT_"+ str(j) + "_GC_PERCENT")])
@@ -427,7 +414,7 @@ def primer_search(current_amp, global_parameters=global_parameters, filename="pr
             rightprimer_length =  str(primerdict[str("PRIMER_RIGHT_"+ str(j))][1])
             rightprimer_gc =  str(primerdict[str("PRIMER_RIGHT_"+ str(j) + "_GC_PERCENT")])
             rightprimer_tm =  str(primerdict[str("PRIMER_RIGHT_"+ str(j) + "_TM")])
-            print("Testing " + leftprimer + " " + rightprimer)
+
             product_len = int(rightprimer_start) - int(leftprimer_start) #rightprimer_start is already right edge of primer
             if method == "dumb":
                 bad = 1
@@ -448,8 +435,8 @@ def primer_search(current_amp, global_parameters=global_parameters, filename="pr
 
             if method == "in_silico_pcr":
                 #print(leftprimer, rightprimer)
-                (bad, viableproducts) = screen_primer_in_silico_pcr((leftprimer, rightprimer), genomename, tm=tm)
-                #print(viableproducts)
+                (bad, viableproducts) = screen_primer_in_silico_pcr((leftprimer, rightprimer), genomename)
+                #print(bad, viableproducts)
             j = j + 1
         # If a good primer (no off-target amplification) is found,
         # add it to the output tsv
@@ -478,13 +465,11 @@ def primer_search(current_amp, global_parameters=global_parameters, filename="pr
                                 "expandedpriming": primerdict["expandedpriming"],
                                 "product_nonoverlapping_guidecount": product_nonoverlapping_guidecount
                                 }
-            print("Primer added to output file.")
         elif bad == 1:
             primerdict["PRIMER_PAIR_NUM_RETURNED"] = 0
 
-def collect_good_primers(amplicon_list, filename = "datetime", method = "dumb", tm=40):
+def collect_good_primers(amplicon_list, filename = "datetime", method = "dumb"):
     if filename == "datetime":
         filename = str("primerlist_" + time.strftime("%Y%m%d-%H%M%S", time.localtime()) + ".tsv")
-    for i, item in enumerate(amplicon_list):
-        print("\nAmplicon " + str(i))
-        primer_search(item, filename=filename, method=method, tm=tm)
+    for item in amplicon_list:
+        primer_search(item, filename=filename, method=method)

@@ -60,3 +60,4 @@ site-packages directory or your project working directory.
 ```python
 import eating
 ```
+Consult individual function docstrings for instructions or contact andylane@gmail.com for code orientation.

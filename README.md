@@ -46,7 +46,7 @@ when the molecular biology protocol is applied to that sequence.
     EEF1G	13188	AATGCCACTCTCCAGGATGA	202	20	58.41176058	50	AGGAGGTGGGAGGGACAG	1984	18	59.54788591	66.66666667	1989	1782	59	52
     ```
     
-- Analysis is covered by a limited number of functions (`eating.visualize`). These are designed to operate on FASTQ files resulting from HiSeq 2000 sequencing of resulting CRISPR-EATING libraries.
+- Analysis is covered by a limited number of functions (`eating.visualize`). These are designed to operate on FASTQ files resulting from HiSeq 2000 sequencing of CRISPR-EATING libraries.
     - `visualize.plot_complexity` attempts to describe the diversity of the resulting sgRNA library by plotting unique sequences against
     sequence count. This is intended to be a quick screen for gross PCR "jackpotting" (aka the overamplification of one or a few sequences in PCR).
     - `visualize.string2feat` annotates Bio.Seq objects with the locations of sgRNAs observed in sequencing. This is useful for troubleshooting, e.g., failures of the Mung-Bean nuclease step where observed guides are preferentially found at the termini of amplicons. 
